@@ -202,10 +202,11 @@ std::unique_ptr<column> remove_keys(dictionary_column_view const& dictionary_col
 }
 
 std::unique_ptr<column> remove_unused_keys(dictionary_column_view const& dictionary_column,
+                                           rmm::cuda_stream_view stream,
                                            rmm::mr::device_memory_resource* mr)
 {
   CUDF_FUNC_RANGE();
-  return detail::remove_unused_keys(dictionary_column, cudf::get_default_stream(), mr);
+  return detail::remove_unused_keys(dictionary_column, stream, mr);
 }
 
 }  // namespace dictionary

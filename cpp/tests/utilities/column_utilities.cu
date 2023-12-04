@@ -852,6 +852,11 @@ bool expect_columns_equal(cudf::column_view const& lhs,
                                cudf::test::default_ulp);
 }
 
+bool is_unsanitized_column(cudf::column_view const& lhs, cudf::column_view const& rhs)
+{
+  return true;
+}
+
 /**
  * @copydoc cudf::test::expect_columns_equivalent
  */

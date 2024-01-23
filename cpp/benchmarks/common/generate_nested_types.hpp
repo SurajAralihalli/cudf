@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,32 @@
 #include <nvbench/nvbench.cuh>
 #pragma GCC diagnostic pop
 
+#include <bitset>
+#include <cudf/detail/nvtx/ranges.hpp>
 #include <random>
+
+#define _CONCAT_(x, y) x##y
+#define CONCAT(x, y)   _CONCAT_(x, y)
+#define NVTX3_PUSH_RANGE_IN(D, tag)                                                            \
+  ::nvtx3::registered_message<D> const CONCAT(nvtx3_range_name__, __LINE__){std::string(tag)}; \
+  ::nvtx3::event_attributes const CONCAT(nvtx3_range_attr__,                                   \
+                                         __LINE__){CONCAT(nvtx3_range_name__, __LINE__)};      \
+  nvtxDomainRangePushEx(::nvtx3::domain::get<D>(), CONCAT(nvtx3_range_attr__, __LINE__).get());
+
+#define NVTX3_POP_RANGE(D) nvtxDomainRangePop(::nvtx3::domain::get<D>());
+
+#define CUDF_PUSH_RANGE(tag) NVTX3_PUSH_RANGE_IN(cudf::libcudf_domain, tag)
+#define CUDF_POP_RANGE()     NVTX3_POP_RANGE(cudf::libcudf_domain)
+
+#define NVTX3_SCOPED_RANGE_IN(D, tag)                                                        \
+  ::nvtx3::registered_message<D> const CONCAT(nvtx3_scope_name__,                            \
+                                              __LINE__){std::string(__func__) + "::" + tag}; \
+  ::nvtx3::event_attributes const CONCAT(nvtx3_scope_attr__,                                 \
+                                         __LINE__){CONCAT(nvtx3_scope_name__, __LINE__)};    \
+  ::nvtx3::domain_thread_range<D> const CONCAT(nvtx3_range__,                                \
+                                               __LINE__){CONCAT(nvtx3_scope_attr__, __LINE__)};
+
+#define CUDF_SCOPED_RANGE(tag) NVTX3_SCOPED_RANGE_IN(cudf::libcudf_domain, tag)
 
 inline std::unique_ptr<cudf::table> create_lists_data(nvbench::state& state,
                                                       cudf::size_type const num_columns = 1,
@@ -78,12 +103,21 @@ inline std::unique_ptr<cudf::table> create_structs_data(nvbench::state& state,
   std::vector<std::unique_ptr<cudf::column>> child_cols = std::move(cols);
   // Nest the child columns in a struct, then nest that struct column inside another
   // struct column up to the desired depth
+
+  std::vector<bool> struct_validity;
+  struct_validity.reserve((n_rows + 7) / 8);
   for (int i = 0; i < depth; i++) {
-    std::vector<bool> struct_validity;
+    CUDF_PUSH_RANGE("Validity Vector Creation");
+    struct_validity.clear();
+    // std::vector<bool> struct_validity;
     std::uniform_int_distribution<int> bool_distribution(0, 100 * (i + 1));
     std::generate_n(
       std::back_inserter(struct_validity), n_rows, [&]() { return bool_distribution(generator); });
+    CUDF_POP_RANGE();
+
+    CUDF_PUSH_RANGE("structs_column_wrapper creation");
     cudf::test::structs_column_wrapper struct_col(std::move(child_cols), struct_validity);
+    CUDF_POP_RANGE();
     child_cols = std::vector<std::unique_ptr<cudf::column>>{};
     child_cols.push_back(struct_col.release());
   }

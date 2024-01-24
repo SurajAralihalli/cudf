@@ -104,12 +104,13 @@ inline std::unique_ptr<cudf::table> create_structs_data(nvbench::state& state,
   // Nest the child columns in a struct, then nest that struct column inside another
   // struct column up to the desired depth
 
-  std::vector<bool> struct_validity;
-  struct_validity.reserve((n_rows + 7) / 8);
+  // std::vector<bool> struct_validity;
+  // struct_validity.reserve(n_rows);
   for (int i = 0; i < depth; i++) {
     CUDF_PUSH_RANGE("Validity Vector Creation");
-    struct_validity.clear();
-    // std::vector<bool> struct_validity;
+    // struct_validity.clear();
+    std::vector<bool> struct_validity;
+    struct_validity.reserve(n_rows);
     std::uniform_int_distribution<int> bool_distribution(0, 100 * (i + 1));
     std::generate_n(
       std::back_inserter(struct_validity), n_rows, [&]() { return bool_distribution(generator); });

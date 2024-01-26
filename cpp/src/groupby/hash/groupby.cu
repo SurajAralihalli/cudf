@@ -63,6 +63,30 @@
 
 #include <cudf/detail/nvtx/ranges.hpp>
 
+#define _CONCAT_(x, y) x##y
+#define CONCAT(x, y)   _CONCAT_(x, y)
+
+#define NVTX3_PUSH_RANGE_IN(D, tag)                                                            \
+  ::nvtx3::registered_message<D> const CONCAT(nvtx3_range_name__, __LINE__){std::string(tag)}; \
+  ::nvtx3::event_attributes const CONCAT(nvtx3_range_attr__,                                   \
+                                         __LINE__){CONCAT(nvtx3_range_name__, __LINE__)};      \
+  nvtxDomainRangePushEx(::nvtx3::domain::get<D>(), CONCAT(nvtx3_range_attr__, __LINE__).get());
+
+#define NVTX3_POP_RANGE(D) nvtxDomainRangePop(::nvtx3::domain::get<D>());
+
+#define CUDF_PUSH_RANGE(tag) NVTX3_PUSH_RANGE_IN(cudf::libcudf_domain, tag)
+#define CUDF_POP_RANGE()     NVTX3_POP_RANGE(cudf::libcudf_domain)
+
+#define NVTX3_SCOPED_RANGE_IN(D, tag)                                                        \
+  ::nvtx3::registered_message<D> const CONCAT(nvtx3_scope_name__,                            \
+                                              __LINE__){std::string(__func__) + "::" + tag}; \
+  ::nvtx3::event_attributes const CONCAT(nvtx3_scope_attr__,                                 \
+                                         __LINE__){CONCAT(nvtx3_scope_name__, __LINE__)};    \
+  ::nvtx3::domain_thread_range<D> const CONCAT(nvtx3_range__,                                \
+                                               __LINE__){CONCAT(nvtx3_scope_attr__, __LINE__)};
+
+#define CUDF_SCOPED_RANGE(tag) NVTX3_SCOPED_RANGE_IN(cudf::libcudf_domain, tag)
+
 namespace cudf {
 namespace groupby {
 namespace detail {
@@ -364,6 +388,7 @@ class hash_compound_agg_finalizer final : public cudf::detail::aggregation_final
 std::tuple<table_view, std::vector<aggregation::Kind>, std::vector<std::unique_ptr<aggregation>>>
 flatten_single_pass_aggs(host_span<aggregation_request const> requests)
 {
+  CUDF_FUNC_RANGE();
   std::vector<column_view> columns;
   std::vector<std::unique_ptr<aggregation>> aggs;
   std::vector<aggregation::Kind> agg_kinds;
@@ -413,6 +438,7 @@ void sparse_to_dense_results(table_view const& keys,
                              rmm::cuda_stream_view stream,
                              rmm::mr::device_memory_resource* mr)
 {
+  CUDF_FUNC_RANGE();
   auto row_bitmask =
     cudf::detail::bitmask_and(keys, stream, rmm::mr::get_current_device_resource()).first;
   bool skip_key_rows_with_nulls = keys_have_nulls and include_null_keys == null_policy::EXCLUDE;
@@ -438,6 +464,7 @@ auto create_sparse_results_table(table_view const& flattened_values,
                                  std::vector<aggregation::Kind> aggs,
                                  rmm::cuda_stream_view stream)
 {
+  CUDF_FUNC_RANGE();
   // TODO single allocation - room for performance improvement
   std::vector<std::unique_ptr<column>> sparse_columns;
   std::transform(
@@ -479,6 +506,7 @@ void compute_single_pass_aggs(table_view const& keys,
                               null_policy include_null_keys,
                               rmm::cuda_stream_view stream)
 {
+  CUDF_FUNC_RANGE();
   // flatten the aggs to a table that can be operated on by aggregate_row
   auto const [flattened_values, agg_kinds, aggs] = flatten_single_pass_aggs(requests);
 
@@ -497,6 +525,7 @@ void compute_single_pass_aggs(table_view const& keys,
       ? cudf::detail::bitmask_and(keys, stream, rmm::mr::get_current_device_resource()).first
       : rmm::device_buffer{};
 
+  CUDF_PUSH_RANGE("thrust::for_each_n loop1");
   thrust::for_each_n(rmm::exec_policy(stream),
                      thrust::make_counting_iterator(0),
                      keys.num_rows(),
@@ -507,6 +536,9 @@ void compute_single_pass_aggs(table_view const& keys,
                        d_aggs.data(),
                        static_cast<bitmask_type*>(row_bitmask.data()),
                        skip_key_rows_with_nulls});
+  CUDF_POP_RANGE();
+
+  CUDF_PUSH_RANGE("sparse_results loop2");
   // Add results back to sparse_results cache
   auto sparse_result_cols = sparse_table.release();
   for (size_t i = 0; i < aggs.size(); i++) {
@@ -514,6 +546,7 @@ void compute_single_pass_aggs(table_view const& keys,
     sparse_results->add_result(
       flattened_values.column(i), *aggs[i], std::move(sparse_result_cols[i]));
   }
+  CUDF_POP_RANGE();
 }
 
 /**
@@ -525,6 +558,7 @@ rmm::device_uvector<size_type> extract_populated_keys(map_type<ComparatorType> c
                                                       size_type num_keys,
                                                       rmm::cuda_stream_view stream)
 {
+  CUDF_FUNC_RANGE();
   rmm::device_uvector<size_type> populated_keys(num_keys, stream);
 
   auto const get_key = cuda::proclaim_return_type<typename map_type<ComparatorType>::key_type>(
@@ -602,14 +636,17 @@ std::unique_ptr<table> groupby(table_view const& keys,
                                                              d_key_equal,
                                                              allocator_type());
     // Compute all single pass aggs first
+    // added nvtx
     compute_single_pass_aggs(
       keys, requests, &sparse_results, *map, keys_have_nulls, include_null_keys, stream);
 
     // Extract the populated indices from the hash map and create a gather map.
     // Gathering using this map from sparse results will give dense results.
+    // added nvtx
     auto gather_map = extract_populated_keys(*map, keys.num_rows(), stream);
 
     // Compact all results from sparse_results and insert into cache
+    // added nvtx
     sparse_to_dense_results(keys,
                             requests,
                             &sparse_results,
@@ -621,6 +658,7 @@ std::unique_ptr<table> groupby(table_view const& keys,
                             stream,
                             mr);
 
+    // added nvtx
     return cudf::detail::gather(keys,
                                 gather_map,
                                 out_of_bounds_policy::DONT_CHECK,

@@ -106,7 +106,9 @@ NVBENCH_BENCH(bench_groupby_nvsum1)
   .set_name("groupby_nvsum1")
   .add_string_axis("path", {"/home/saralihalli/Downloads/testdata.parquet"});
 
-using data_type = nvbench::type_list<int32_t, uint32_t, int64_t, uint64_t>;
+// using data_type = nvbench::type_list<int32_t, uint32_t, int64_t, uint64_t>;
+
+using data_type = nvbench::type_list<uint64_t>;
 
 NVBENCH_BENCH_TYPES(bench_groupby_nvsum2, NVBENCH_TYPE_AXES(data_type)).set_name("groupby_nvsum2");
 

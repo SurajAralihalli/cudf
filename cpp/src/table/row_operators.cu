@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <thrust/iterator/transform_iterator.h>
+
+#include <cudf/detail/nvtx/ranges.hpp>
 
 namespace cudf {
 namespace experimental {
@@ -641,6 +643,7 @@ std::shared_ptr<preprocessed_table> preprocessed_table::create(
   bool has_ranked_children,
   rmm::cuda_stream_view stream)
 {
+  CUDF_FUNC_RANGE();
   check_lex_compatibility(preprocessed_input);
 
   auto d_table = table_device_view::create(preprocessed_input, stream);

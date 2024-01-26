@@ -24,7 +24,7 @@
 void bench_groupby_nvsum(nvbench::state& state)
 {
   auto read_opts = cudf::io::parquet_reader_options_builder(
-                     cudf::io::source_info{"/home/saralihalli/Downloads/testdata.parquet.gz"})
+                     cudf::io::source_info{"/home/saralihalli/Downloads/testdata.parquet"})
                      .build();
   auto read_result = cudf::io::read_parquet(read_opts);
   auto t           = read_result.tbl->view();

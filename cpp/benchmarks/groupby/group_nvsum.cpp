@@ -50,14 +50,15 @@ void bench_groupby_nvsum1(nvbench::state& state)
     auto result = grouper.aggregate(requests, cudf::test::get_default_stream());
   });
 }
-
-void bench_groupby_nvsum2(nvbench::state& state)
+template <typename Type>
+void bench_groupby_nvsum2(nvbench::state& state, nvbench::type_list<Type>)
 {
   std::vector<std::string> keys(2150983, "");
   std::vector<int> values(2150983, 5000);
   cudf::test::strings_column_wrapper col0(
     keys.begin(), keys.end(), cudf::test::iterators::all_nulls());
-  cudf::test::fixed_width_column_wrapper<int32_t> col1(values.begin(), values.end());
+
+  cudf::test::fixed_width_column_wrapper<Type> col1(values.begin(), values.end());
 
   // cudf::test::print(col0);
   // cudf::test::print(col1);
@@ -104,7 +105,11 @@ void bench_groupby_nvsum3(nvbench::state& state)
 NVBENCH_BENCH(bench_groupby_nvsum1)
   .set_name("groupby_nvsum1")
   .add_string_axis("path", {"/home/saralihalli/Downloads/testdata.parquet"});
-NVBENCH_BENCH(bench_groupby_nvsum2).set_name("groupby_nvsum2");
+
+using data_type = nvbench::type_list<int32_t, uint32_t, int64_t, uint64_t>;
+
+NVBENCH_BENCH_TYPES(bench_groupby_nvsum2, NVBENCH_TYPE_AXES(data_type)).set_name("groupby_nvsum2");
+
 NVBENCH_BENCH(bench_groupby_nvsum3)
   .set_name("groupby_nvsum3")
   .add_string_axis("path", {"/home/saralihalli/Downloads/testdata.parquet"});

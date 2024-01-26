@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,8 @@
 #include <memory>
 #include <unordered_set>
 #include <utility>
+
+#include <cudf/detail/nvtx/ranges.hpp>
 
 namespace cudf {
 namespace groupby {
@@ -572,6 +574,7 @@ std::unique_ptr<table> groupby(table_view const& keys,
                                rmm::cuda_stream_view stream,
                                rmm::mr::device_memory_resource* mr)
 {
+  CUDF_FUNC_RANGE();
   auto const num_keys            = keys.num_rows();
   auto const null_keys_are_equal = null_equality::EQUAL;
   auto const has_null            = nullate::DYNAMIC{cudf::has_nested_nulls(keys)};

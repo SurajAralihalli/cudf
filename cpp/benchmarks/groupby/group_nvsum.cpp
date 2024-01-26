@@ -73,7 +73,36 @@ void bench_groupby_nvsum2(nvbench::state& state)
   });
 }
 
+void bench_groupby_nvsum3(nvbench::state& state)
+{
+  auto const path = state.get_string("path");
+
+  auto read_opts   = cudf::io::parquet_reader_options_builder(cudf::io::source_info{path}).build();
+  auto read_result = cudf::io::read_parquet(read_opts);
+  auto t           = read_result.tbl->view();
+
+  // cudf::test::print(t.column(0));
+  // cudf::test::print(t.column(1));
+
+  std::vector<cudf::groupby::aggregation_request> requests;
+  requests.emplace_back(cudf::groupby::aggregation_request());
+  requests[0].values = t.column(1);
+  requests[0].aggregations.push_back(cudf::make_sum_aggregation<cudf::groupby_aggregation>());
+  requests[0].aggregations.push_back(
+    cudf::make_nth_element_aggregation<cudf::groupby_aggregation>(0));
+
+  cudf::groupby::groupby grouper(
+    cudf::table_view({t.column(0)}), cudf::null_policy::INCLUDE, cudf::sorted::NO);
+
+  state.exec(nvbench::exec_tag::sync, [&](nvbench::launch& launch) {
+    auto result = grouper.aggregate(requests, cudf::test::get_default_stream());
+  });
+}
+
 NVBENCH_BENCH(bench_groupby_nvsum1)
   .set_name("groupby_nvsum1")
   .add_string_axis("path", {"/home/saralihalli/Downloads/testdata.parquet"});
 NVBENCH_BENCH(bench_groupby_nvsum2).set_name("groupby_nvsum2");
+NVBENCH_BENCH(bench_groupby_nvsum3)
+  .set_name("groupby_nvsum3")
+  .add_string_axis("path", {"/home/saralihalli/Downloads/testdata.parquet"});

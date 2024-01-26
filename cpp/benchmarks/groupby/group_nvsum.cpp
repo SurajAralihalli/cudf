@@ -16,6 +16,10 @@
 
 #include <benchmarks/common/generate_input.hpp>
 
+#include <cudf_test/column_utilities.hpp>
+#include <cudf_test/column_wrapper.hpp>
+#include <cudf_test/table_utilities.hpp>
+
 #include <cudf/groupby.hpp>
 #include <cudf/io/parquet.hpp>
 
@@ -23,20 +27,19 @@
 
 void bench_groupby_nvsum(nvbench::state& state)
 {
-  auto read_opts = cudf::io::parquet_reader_options_builder(
-                     cudf::io::source_info{"/home/saralihalli/Downloads/testdata.parquet"})
-                     .build();
-  auto read_result = cudf::io::read_parquet(read_opts);
-  auto t           = read_result.tbl->view();
+  cudf::test::strings_column_wrapper col0({"", "", "", "", ""});
+  cudf::test::fixed_width_column_wrapper<int32_t> col1{{1, 2, 3, 4, 5}};
+
   cudf::groupby::groupby grouper(
-    cudf::table_view({t.column(0)}), cudf::null_policy::INCLUDE, cudf::sorted::NO);
+    cudf::table_view({col0}), cudf::null_policy::INCLUDE, cudf::sorted::NO);
   std::vector<cudf::groupby::aggregation_request> requests;
   requests.emplace_back(cudf::groupby::aggregation_request());
-  requests[0].values = t.column(1);
+  requests[0].values = col1;
   requests[0].aggregations.push_back(cudf::make_sum_aggregation<cudf::groupby_aggregation>());
 
-  state.exec(nvbench::exec_tag::sync,
-             [&](nvbench::launch& launch) { auto result = grouper.aggregate(requests); });
+  state.exec(nvbench::exec_tag::sync, [&](nvbench::launch& launch) {
+    auto result = grouper.aggregate(requests, cudf::test::get_default_stream());
+  });
 }
 
 NVBENCH_BENCH(bench_groupby_nvsum).set_name("groupby_nvsum");

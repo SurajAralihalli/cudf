@@ -19,6 +19,7 @@
 #include <cudf_test/column_utilities.hpp>
 #include <cudf_test/column_wrapper.hpp>
 #include <cudf_test/debug_utilities.hpp>
+#include <cudf_test/iterator_utilities.hpp>
 #include <cudf_test/table_utilities.hpp>
 
 #include <cudf/groupby.hpp>
@@ -51,11 +52,14 @@ void bench_groupby_nvsum1(nvbench::state& state)
 
 void bench_groupby_nvsum2(nvbench::state& state)
 {
-  cudf::test::strings_column_wrapper col0({"", "", "", "", ""});
-  cudf::test::fixed_width_column_wrapper<int32_t> col1{{1, 2, 3, 4, 5}};
+  std::vector<std::string> keys(2150983, "");
+  std::vector<int> values(2150983, 5000);
+  cudf::test::strings_column_wrapper col0(
+    keys.begin(), keys.end(), cudf::test::iterators::all_nulls());
+  cudf::test::fixed_width_column_wrapper<int32_t> col1(values.begin(), values.end());
 
-  cudf::test::print(col0);
-  cudf::test::print(col1);
+  // cudf::test::print(col0);
+  // cudf::test::print(col1);
 
   cudf::groupby::groupby grouper(
     cudf::table_view({col0}), cudf::null_policy::INCLUDE, cudf::sorted::NO);

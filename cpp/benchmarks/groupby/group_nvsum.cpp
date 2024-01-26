@@ -27,6 +27,7 @@
 
 #include <nvbench/nvbench.cuh>
 
+// detail::hash::groupby
 void bench_groupby_nvsum1(nvbench::state& state)
 {
   auto const path = state.get_string("path");
@@ -73,6 +74,7 @@ void bench_groupby_nvsum2(nvbench::state& state)
   });
 }
 
+// sort_aggregate
 void bench_groupby_nvsum3(nvbench::state& state)
 {
   auto const path = state.get_string("path");

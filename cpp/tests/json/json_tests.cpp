@@ -235,13 +235,13 @@ TEST_F(JsonPathTests, GetJsonObjectRootOp8)
   CUDF_TEST_EXPECT_COLUMNS_EQUIVALENT(*result, *expected);
 }
 
-// Failures - 2, 5, 7
-// {'a': 'A"'}
-// {'a': '"A'}
+// Fail
+// {'a': 'A''}
 // {'a': '"A''}
+// {"a": "A""}
 
 // Pass
-// {'a': ''A'}
-// {'a': 'A''}
+// {'a': 'A"'}
 // {'a': ''A''}
 // {'a': '"A"'}
+// {'a': '"A'}

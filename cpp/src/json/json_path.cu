@@ -1052,6 +1052,7 @@ std::unique_ptr<cudf::column> get_json_object(cudf::strings_column_view const& c
                                               rmm::mr::device_memory_resource* mr)
 {
   CUDF_FUNC_RANGE();
+  std::cout << "options.allow_single_quotes: " << options.get_allow_single_quotes() << std::endl;
   return detail::get_json_object(col, json_path, options, stream, mr);
 }
 

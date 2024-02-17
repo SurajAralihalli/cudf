@@ -43,6 +43,8 @@
 #include <thrust/scan.h>
 #include <thrust/tuple.h>
 
+#include <cudf_test/debug_utilities.hpp>
+
 namespace cudf {
 namespace detail {
 
@@ -541,7 +543,7 @@ class path_state : private parser {
       case '.': {
         path_operator op;
         string_view term{".[", 2};
-        if (parse_path_name(op.name, term)) {
+        if (parse_path_name(op.name, term, false)) {
           // this is another potential use case for __SPARK_BEHAVIORS / configurability
           // Spark currently only handles the wildcard operator inside [*], it does
           // not handle .*
@@ -564,7 +566,7 @@ class path_state : private parser {
         path_operator op;
         string_view term{"]", 1};
         bool const is_string = *pos == '\'';
-        if (parse_path_name(op.name, term)) {
+        if (parse_path_name(op.name, term, true)) {
           pos++;
           if (op.name.size_bytes() == 1 && op.name.data()[0] == '*') {
             op.type          = path_operator_type::CHILD_WILDCARD;
@@ -600,7 +602,7 @@ class path_state : private parser {
  private:
   cudf::io::parse_options_view json_opts{',', '\n', '\"', '.'};
 
-  bool parse_path_name(string_view& name, string_view const& terminators)
+  bool parse_path_name(string_view& name, string_view const& terminators, bool inside_box)
   {
     switch (*pos) {
       case '*':
@@ -609,8 +611,10 @@ class path_state : private parser {
         break;
 
       case '\'':
-        if (parse_string(name, false, '\'') != parse_result::SUCCESS) { return false; }
-        break;
+        if (inside_box and (parse_string(name, false, '\'') != parse_result::SUCCESS)) {
+          return false;
+        }
+        // go to default
 
       default: {
         size_t const chars_left = input_len - (pos - input);
@@ -677,6 +681,41 @@ std::pair<thrust::optional<rmm::device_uvector<path_operator>>, int> build_comma
   } while (op.type != path_operator_type::END);
 
   auto const is_empty = h_operators.size() == 1 && h_operators[0].type == path_operator_type::END;
+
+  if (!is_empty) {
+    auto printops = [h_operators]() {
+      // auto printCharArray = [](const char* input, size_t input_len) {
+      //     std::cout.write(input, input_len);
+      //     std::cout << std::endl;
+      //     std::cout << "Input Length: " << input_len << std::endl;
+      //   };
+
+      auto pathOperatorTypeToString = [](path_operator_type type) -> std::string {
+        switch (type) {
+          case path_operator_type::ROOT: return "ROOT";
+          case path_operator_type::CHILD: return "CHILD";
+          case path_operator_type::CHILD_WILDCARD: return "CHILD_WILDCARD";
+          case path_operator_type::CHILD_INDEX: return "CHILD_INDEX";
+          case path_operator_type::ERROR: return "ERROR";
+          case path_operator_type::END: return "END";
+          default: return "UNKNOWN";
+        }
+      };
+
+      for (auto op : h_operators) {
+        std::cout << "@@@ " << op.name.size_bytes() << std::endl;
+        // if(op.name.size_bytes()!=0) {
+        //   // printCharArray(op.name.data(), op.name.size_bytes());
+        //   std::cout  << (op.name.data()[0] == 'A') << std::endl;
+
+        // }
+        std::cout << pathOperatorTypeToString(op.type) << std::endl;
+      }
+    };
+
+    printops();
+  }
+
   return is_empty ? std::pair(thrust::nullopt, 0)
                   : std::pair(thrust::make_optional(cudf::detail::make_device_uvector_sync(
                                 h_operators, stream, rmm::mr::get_current_device_resource())),
@@ -1053,6 +1092,7 @@ std::unique_ptr<cudf::column> get_json_object(cudf::strings_column_view const& c
                                               rmm::mr::device_memory_resource* mr)
 {
   CUDF_FUNC_RANGE();
+  std::cout << json_path.to_string() << std::endl;
   return detail::get_json_object(col, json_path, options, stream, mr);
 }
 

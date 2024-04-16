@@ -1028,4 +1028,68 @@ TEST_P(JsonParserTest, EmptyString)
   EXPECT_EQ(cudf_table.tbl->num_columns(), expected_col_count);
 }
 
+std::string tokenToString(cuio_json::token_t token)
+{
+  switch (token) {
+    case cuio_json::token_t::StructBegin: return "StructBegin";
+    case cuio_json::token_t::StructEnd: return "StructEnd";
+    case cuio_json::token_t::ListBegin: return "ListBegin";
+    case cuio_json::token_t::ListEnd: return "ListEnd";
+    case cuio_json::token_t::StructMemberBegin: return "StructMemberBegin";
+    case cuio_json::token_t::StructMemberEnd: return "StructMemberEnd";
+    case cuio_json::token_t::FieldNameBegin: return "FieldNameBegin";
+    case cuio_json::token_t::FieldNameEnd: return "FieldNameEnd";
+    case cuio_json::token_t::StringBegin: return "StringBegin";
+    case cuio_json::token_t::StringEnd: return "StringEnd";
+    case cuio_json::token_t::ValueBegin: return "ValueBegin";
+    case cuio_json::token_t::ValueEnd: return "ValueEnd";
+    case cuio_json::token_t::ErrorBegin: return "ErrorBegin";
+    case cuio_json::token_t::LineEnd: return "@@@@@@@LineEnd";
+    default: return "UnknownToken";
+  }
+}
+
+TEST_P(JsonParserTest, AnalyzeTokenStream)
+{
+  using cuio_json::PdaTokenT;
+  using cuio_json::SymbolOffsetT;
+  using cuio_json::SymbolT;
+  // Test input
+  // std::string const input = R"(
+  // {"a":1,"b":2,"c":[3], "d": {}}
+  // {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
+  // {"a":1,"b":6.0,"c":[5, 7], "d": null}
+  // {"a":1,"b":8.0,"c":null, "d": {}}
+  // {"a":1,"b":null,"c":null}
+  // {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
+
+  std::string const input = R"(
+  {"a":1}
+  {"a":1})";
+
+  auto const stream = cudf::get_default_stream();
+
+  // Default parsing options
+  cudf::io::json_reader_options default_options{};
+  default_options.enable_lines(true);
+
+  // Prepare input & output buffers
+  cudf::string_scalar const d_scalar(input, true, stream);
+  auto const d_input =
+    cudf::device_span<SymbolT const>{d_scalar.data(), static_cast<size_t>(d_scalar.size())};
+
+  // Parse the JSON and get the token stream
+  auto [d_tokens_gpu, d_token_indices_gpu] = cuio_json::detail::get_token_stream(
+    d_input, default_options, stream, rmm::mr::get_current_device_resource());
+  // Copy back the number of tokens that were written
+  auto const tokens_gpu        = cudf::detail::make_std_vector_async(d_tokens_gpu, stream);
+  auto const token_indices_gpu = cudf::detail::make_std_vector_async(d_token_indices_gpu, stream);
+
+  std::cout << "Print AnalyzeTokenStream" << std::endl;
+  for (auto i : tokens_gpu) {
+    std::cout << "AnalyzeTokenStream: " << tokenToString(static_cast<cuio_json::token_t>(i))
+              << std::endl;
+  }
+}
+
 CUDF_TEST_PROGRAM_MAIN()

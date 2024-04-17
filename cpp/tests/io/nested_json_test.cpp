@@ -1069,8 +1069,9 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
 
   auto const stream = cudf::get_default_stream();
 
-  // Default parsing options
+  // parsing options
   cudf::io::json_reader_options default_options{};
+  default_options.set_recovery_mode(cudf::io::json_recovery_mode_t::RECOVER_WITH_NULL);
   default_options.enable_lines(true);
 
   // Prepare input & output buffers
@@ -1085,7 +1086,7 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
   auto const tokens_gpu        = cudf::detail::make_std_vector_async(d_tokens_gpu, stream);
   auto const token_indices_gpu = cudf::detail::make_std_vector_async(d_token_indices_gpu, stream);
 
-  std::cout << "Print AnalyzeTokenStream" << std::endl;
+  std::cout << "Print AnalyzeTokenStream : 1" << std::endl;
   for (auto i : tokens_gpu) {
     std::cout << "AnalyzeTokenStream: " << tokenToString(static_cast<cuio_json::token_t>(i))
               << std::endl;

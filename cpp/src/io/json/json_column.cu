@@ -1047,6 +1047,27 @@ std::pair<std::unique_ptr<column>, std::vector<column_name_info>> device_json_co
   }
 }
 
+std::string tokenToString(cudf::io::json::token_t token)
+{
+  switch (token) {
+    case cudf::io::json::token_t::StructBegin: return "StructBegin";
+    case cudf::io::json::token_t::StructEnd: return "StructEnd";
+    case cudf::io::json::token_t::ListBegin: return "ListBegin";
+    case cudf::io::json::token_t::ListEnd: return "ListEnd";
+    case cudf::io::json::token_t::StructMemberBegin: return "StructMemberBegin";
+    case cudf::io::json::token_t::StructMemberEnd: return "StructMemberEnd";
+    case cudf::io::json::token_t::FieldNameBegin: return "FieldNameBegin";
+    case cudf::io::json::token_t::FieldNameEnd: return "FieldNameEnd";
+    case cudf::io::json::token_t::StringBegin: return "StringBegin";
+    case cudf::io::json::token_t::StringEnd: return "StringEnd";
+    case cudf::io::json::token_t::ValueBegin: return "ValueBegin";
+    case cudf::io::json::token_t::ValueEnd: return "ValueEnd";
+    case cudf::io::json::token_t::ErrorBegin: return "ErrorBegin";
+    case cudf::io::json::token_t::LineEnd: return "@@@@@@@LineEnd";
+    default: return "UnknownToken";
+  }
+}
+
 table_with_metadata device_parse_nested_json(device_span<SymbolT const> d_input,
                                              cudf::io::json_reader_options const& options,
                                              rmm::cuda_stream_view stream,
@@ -1058,6 +1079,14 @@ table_with_metadata device_parse_nested_json(device_span<SymbolT const> d_input,
     // Parse the JSON and get the token stream
     const auto [tokens_gpu, token_indices_gpu] =
       get_token_stream(d_input, options, stream, rmm::mr::get_current_device_resource());
+
+    auto const tokens_gpu_std        = cudf::detail::make_std_vector_async(tokens_gpu, stream);
+
+  std::cout << "Print $$$$$$$$$$$$$$$$$$$$$$$ : 1" << std::endl;
+  for (auto i : tokens_gpu_std) {
+    std::cout << "AnalyzeTokenStream: " << tokenToString(static_cast<cudf::io::json::token_t>(i))
+              << std::endl;
+  }
     // gpu tree generation
     return get_tree_representation(tokens_gpu,
                                    token_indices_gpu,

@@ -1082,10 +1082,9 @@ table_with_metadata device_parse_nested_json(device_span<SymbolT const> d_input,
 
     auto const tokens_gpu_std        = cudf::detail::make_std_vector_async(tokens_gpu, stream);
 
-  std::cout << "Print $$$$$$$$$$$$$$$$$$$$$$$ : 1" << std::endl;
+  std::cout << "$$$ Tokens $$$" << std::endl;
   for (auto i : tokens_gpu_std) {
-    std::cout << "AnalyzeTokenStream: " << tokenToString(static_cast<cudf::io::json::token_t>(i))
-              << std::endl;
+    std::cout << tokenToString(static_cast<cudf::io::json::token_t>(i)) << std::endl;
   }
     // gpu tree generation
     return get_tree_representation(tokens_gpu,
@@ -1098,6 +1097,9 @@ table_with_metadata device_parse_nested_json(device_span<SymbolT const> d_input,
   auto h_input = cudf::detail::make_host_vector_async(d_input, stream);
   print_tree(h_input, gpu_tree, stream);
 #endif
+
+auto h_input = cudf::detail::make_host_vector_async(d_input, stream);
+print_tree(h_input, gpu_tree, stream);
 
   bool const is_array_of_arrays = [&]() {
     std::array<node_t, 2> h_node_categories = {NC_ERR, NC_ERR};
@@ -1119,6 +1121,22 @@ table_with_metadata device_parse_nested_json(device_span<SymbolT const> d_input,
                                   options.is_enabled_lines(),
                                   stream,
                                   rmm::mr::get_current_device_resource());
+
+  /// DEBUG
+  auto const gpu_col_id_int        = cudf::detail::make_std_vector_async(gpu_col_id, stream);
+  auto const gpu_row_offsets_int = cudf::detail::make_std_vector_async(gpu_row_offsets, stream);
+
+  std::cout << "\nPrint gpu_col_id_int" << std::endl;
+  for (auto i : gpu_col_id_int) {
+    std::cout << i << " ";
+  }
+  std::cout << std::endl;
+
+  std::cout << "\nPrint gpu_row_offsets_int" << std::endl;
+  for (auto i : gpu_row_offsets_int) {
+    std::cout << i << " ";
+  }
+  std::cout << std::endl;                        
 
   device_json_column root_column(stream, mr);
   root_column.type = json_col_t::ListColumn;

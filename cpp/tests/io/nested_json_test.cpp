@@ -1064,8 +1064,12 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
   // {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
 
   std::string const input = R"(
-  {"a":1}
-  {"a":1})";
+  {"a":1,"b":2,"c":[3], "d": {}}
+  {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
+  {"a":1,"b":6.0,"c":[5, 7], "d": null}
+  {"a":1,"b":8.0,"c":null, "d": {}}
+  {"a":1,"b":null,"c":null}
+  {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
 
   auto const stream = cudf::get_default_stream();
 
@@ -1092,5 +1096,47 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
               << std::endl;
   }
 }
+
+
+TEST_P(JsonParserTest, NestedJson)
+{
+  using cuio_json::PdaTokenT;
+  using cuio_json::SymbolOffsetT;
+  using cuio_json::SymbolT;
+  // Test input
+  // std::string const input = R"(
+  // {"a":1,"b":2,"c":[3], "d": {}}
+  // {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
+  // {"a":1,"b":6.0,"c":[5, 7], "d": null}
+  // {"a":1,"b":8.0,"c":null, "d": {}}
+  // {"a":1,"b":null,"c":null}
+  // {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
+
+  std::string const input = R"(
+  {"a":1,"b":2,"c":[3], "d": {}}
+  {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
+  {"a":1,"b":6.0,"c":[5, 7], "d": null}
+  {"a":1,"b":8.0,"c":null, "d": {}}
+  {"a":1,"b":null,"c":null}
+  {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
+
+  auto const stream = cudf::get_default_stream();
+
+  // parsing options
+  cudf::io::json_reader_options default_options{};
+  default_options.set_recovery_mode(cudf::io::json_recovery_mode_t::RECOVER_WITH_NULL);
+  default_options.enable_lines(true);
+
+  auto const d_input =
+    cudf::detail::make_device_uvector_sync(cudf::host_span<char const>{input.c_str(), input.size()},
+                                           stream,
+                                           rmm::mr::get_current_device_resource());
+  // Get the JSON's tree representation
+  auto const cudf_table = cuio_json::detail::device_parse_nested_json(d_input, default_options, stream, rmm::mr::get_current_device_resource());
+}
+
+
+
+
 
 CUDF_TEST_PROGRAM_MAIN()

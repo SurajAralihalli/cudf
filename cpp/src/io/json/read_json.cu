@@ -228,6 +228,12 @@ table_with_metadata read_json(host_span<std::unique_ptr<datasource>> sources,
   }
 
   auto buffer = get_record_range_raw_input(sources, reader_opts, stream);
+  auto const buffer_char        = cudf::detail::make_std_vector_async(buffer, stream);
+  std::cout << "###START###" <<  std::endl;
+  for (char i: buffer_char) {
+    std::cout << i;
+  }
+  std::cout <<  std::endl << "###END###" <<  std::endl;
 
   // If input JSON buffer has single quotes and option to normalize single quotes is enabled,
   // invoke pre-processing FST

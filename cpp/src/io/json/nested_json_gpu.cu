@@ -253,6 +253,7 @@ struct TransduceToken {
     } else {
       return read_symbol;
     }
+
   }
 
   template <typename SymbolT>
@@ -266,7 +267,7 @@ struct TransduceToken {
     const bool is_delimiter = match_id == static_cast<SymbolGroupT>(dfa_symbol_group_id::DELIMITER);
 
     // If state is either invalid or we're entering an invalid state, we discard tokens
-    const bool is_part_of_invalid_line =
+    const bool is_part_of_valid_line =
       (match_id != static_cast<SymbolGroupT>(dfa_symbol_group_id::ERROR) &&
        state_id == static_cast<StateT>(TT_VLD));
 
@@ -274,7 +275,55 @@ struct TransduceToken {
     const bool is_end_of_invalid_line = (state_id == static_cast<StateT>(TT_INV) && is_delimiter);
 
     int32_t const emit_count =
-      is_end_of_invalid_line ? num_inv_tokens : (is_part_of_invalid_line && !is_delimiter ? 1 : 0);
+      is_end_of_invalid_line ? num_inv_tokens : (is_part_of_valid_line && !is_delimiter ? 1 : 0);
+    return emit_count;
+  }
+};
+
+
+struct TransduceToken2 {
+  template <typename RelativeOffsetT, typename SymbolT>
+  constexpr CUDF_HOST_DEVICE SymbolT operator()(StateT const state_id,
+                                                SymbolGroupT const match_id,
+                                                RelativeOffsetT const relative_offset,
+                                                SymbolT const read_symbol) const
+  {
+    const bool is_end_of_invalid_line =
+      (state_id == static_cast<StateT>(TT_INV) &&
+       match_id == static_cast<SymbolGroupT>(dfa_symbol_group_id::DELIMITER));
+
+    if (is_end_of_invalid_line) {
+      switch (relative_offset) {
+        case 0 : return SymbolT{token_t::StructEnd, 0};
+        case 1 : return SymbolT{token_t::StructBegin, 0};
+        case 2 : return SymbolT{token_t::LineEnd, 0};
+      }
+    } else {
+      return read_symbol;
+    }
+
+  }
+
+  template <typename SymbolT>
+  constexpr CUDF_HOST_DEVICE int32_t operator()(StateT const state_id,
+                                                SymbolGroupT const match_id,
+                                                SymbolT const read_symbol) const
+  {
+    // Number of tokens emitted on invalid lines
+    constexpr int32_t num_inv_tokens = 3;
+
+    const bool is_delimiter = match_id == static_cast<SymbolGroupT>(dfa_symbol_group_id::DELIMITER);
+
+    // If state is either invalid or we're entering an invalid state, we discard tokens
+    const bool is_part_of_valid_line =
+      (match_id != static_cast<SymbolGroupT>(dfa_symbol_group_id::ERROR) &&
+       state_id == static_cast<StateT>(TT_VLD));
+
+    // Indicates whether we transition from an invalid line to a potentially valid line
+    const bool is_end_of_invalid_line = (state_id == static_cast<StateT>(TT_INV) && is_delimiter);
+
+    int32_t const emit_count =
+      is_end_of_invalid_line ? num_inv_tokens : (is_part_of_valid_line || is_delimiter ? 1 : 0);
     return emit_count;
   }
 };

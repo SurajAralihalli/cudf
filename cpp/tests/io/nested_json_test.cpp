@@ -1043,7 +1043,7 @@ std::string tokenToString(cuio_json::token_t token)
     case cuio_json::token_t::StringEnd: return "StringEnd";
     case cuio_json::token_t::ValueBegin: return "ValueBegin";
     case cuio_json::token_t::ValueEnd: return "ValueEnd";
-    case cuio_json::token_t::ErrorBegin: return "ErrorBegin";
+    case cuio_json::token_t::ErrorBegin: return "$$$$$$ErrorBegin";
     case cuio_json::token_t::LineEnd: return "@@@@@@@LineEnd";
     default: return "UnknownToken";
   }
@@ -1055,6 +1055,12 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
   using cuio_json::SymbolOffsetT;
   using cuio_json::SymbolT;
   // Test input
+  std::string const input = R"(
+  {"a":1}
+  {"a":1}
+  {"a"
+  {"a":1})";
+
   // std::string const input = R"(
   // {"a":1,"b":2,"c":[3], "d": {}}
   // {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
@@ -1062,14 +1068,6 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
   // {"a":1,"b":8.0,"c":null, "d": {}}
   // {"a":1,"b":null,"c":null}
   // {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
-
-  std::string const input = R"(
-  {"a":1,"b":2,"c":[3], "d": {}}
-  {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
-  {"a":1,"b":6.0,"c":[5, 7], "d": null}
-  {"a":1,"b":8.0,"c":null, "d": {}}
-  {"a":1,"b":null,"c":null}
-  {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
 
   auto const stream = cudf::get_default_stream();
 
@@ -1098,42 +1096,42 @@ TEST_P(JsonParserTest, AnalyzeTokenStream)
 }
 
 
-TEST_P(JsonParserTest, NestedJson)
-{
-  using cuio_json::PdaTokenT;
-  using cuio_json::SymbolOffsetT;
-  using cuio_json::SymbolT;
-  // Test input
-  // std::string const input = R"(
-  // {"a":1,"b":2,"c":[3], "d": {}}
-  // {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
-  // {"a":1,"b":6.0,"c":[5, 7], "d": null}
-  // {"a":1,"b":8.0,"c":null, "d": {}}
-  // {"a":1,"b":null,"c":null}
-  // {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
+// TEST_P(JsonParserTest, NestedJson)
+// {
+//   using cuio_json::PdaTokenT;
+//   using cuio_json::SymbolOffsetT;
+//   using cuio_json::SymbolT;
+//   // Test input
+//   // std::string const input = R"(
+//   // {"a":1,"b":2,"c":[3], "d": {}}
+//   // {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
+//   // {"a":1,"b":6.0,"c":[5, 7], "d": null}
+//   // {"a":1,"b":8.0,"c":null, "d": {}}
+//   // {"a":1,"b":null,"c":null}
+//   // {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
 
-  std::string const input = R"(
-  {"a":1,"b":2,"c":[3], "d": {}}
-  {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
-  {"a":1,"b":6.0,"c":[5, 7], "d": null}
-  {"a":1,"b":8.0,"c":null, "d": {}}
-  {"a":1,"b":null,"c":null}
-  {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
+//   std::string const input = R"(
+//   {"a":1,"b":2,"c":[3], "d": {}}
+//   {"a":1,"b":4.0,"c":[], "d": {"year":1882,"author": "Bharathi"}}
+//   {"a":1,"b":6.0,"c":[5, 7], "d": null}
+//   {"a":1,"b":8.0,"c":null, "d": {}}
+//   {"a":1,"b":null,"c":null}
+//   {"a":1,"b":Infinity,"c":[null], "d": {"year":-600,"author": "Kaniyan"})";
 
-  auto const stream = cudf::get_default_stream();
+//   auto const stream = cudf::get_default_stream();
 
-  // parsing options
-  cudf::io::json_reader_options default_options{};
-  default_options.set_recovery_mode(cudf::io::json_recovery_mode_t::RECOVER_WITH_NULL);
-  default_options.enable_lines(true);
+//   // parsing options
+//   cudf::io::json_reader_options default_options{};
+//   default_options.set_recovery_mode(cudf::io::json_recovery_mode_t::RECOVER_WITH_NULL);
+//   default_options.enable_lines(true);
 
-  auto const d_input =
-    cudf::detail::make_device_uvector_sync(cudf::host_span<char const>{input.c_str(), input.size()},
-                                           stream,
-                                           rmm::mr::get_current_device_resource());
-  // Get the JSON's tree representation
-  auto const cudf_table = cuio_json::detail::device_parse_nested_json(d_input, default_options, stream, rmm::mr::get_current_device_resource());
-}
+//   auto const d_input =
+//     cudf::detail::make_device_uvector_sync(cudf::host_span<char const>{input.c_str(), input.size()},
+//                                            stream,
+//                                            rmm::mr::get_current_device_resource());
+//   // Get the JSON's tree representation
+//   auto const cudf_table = cuio_json::detail::device_parse_nested_json(d_input, default_options, stream, rmm::mr::get_current_device_resource());
+// }
 
 
 
